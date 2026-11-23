@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Login</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',sans-serif}
+body{background:#E6E6FA;min-height:100vh;display:flex;justify-content:center;align-items:center;padding:20px}
+.card{background:white;width:100%;max-width:620px;border-radius:25px;padding:30px 25px;text-align:center;box-shadow:0 10px 30px rgba(0,0,0,0.1)}
+.computer-girl{font-size:70px;line-height:1;margin:5px 0}
+h1{font-size:22px;color:#4A4A7A;margin:5px 0}
+.subtitle{color:#888;font-size:13px;margin-bottom:20px}
+input{width:100%;padding:12px;margin:8px 0;border:1.5px solid #DDD;border-radius:12px;font-size:14px;outline:none}
+input:focus{border-color:#7A7AC8}
+button{width:100%;padding:13px;border:none;border-radius:12px;background:#7A7AC8;color:white;font-size:15px;font-weight:600;cursor:pointer;margin-top:10px}
+.small-btn{width:auto;padding:7px 14px;font-size:12px;border-radius:20px;margin:0}
+#msg{color:black;font-size:13px;margin-top:10px;text-align:center}
+#total{font-weight:700;color:#7A7AC8;margin:15px 0}
+h2{font-size:16px;color:#4A4A7A;margin:20px 0 10px;text-align:left}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{background:#E6E6FA;color:#4A4A7A;padding:8px}
+td{padding:8px;border-bottom:1px solid #EEE;text-align:left;vertical-align:middle}
+#adminBox{display:none}
+#detailsBox{display:none;background:#F8F8FF;border:1px solid #E6E6FA;border-radius:16px;padding:16px;margin-top:18px;text-align:left}
+#detailsTitle{font-size:15px;font-weight:700;color:#4A4A7A;margin-bottom:10px}
+#closeBtn{width:auto;padding:6px 14px;font-size:12px;background:#DDD;color:#444;margin-top:10px}
+.links{margin-top:14px;font-size:13px}
+.links a{color:#7A7AC8;text-decoration:none;font-weight:600}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="computer-girl">👩‍💻</div>
+  <h1>Admin Login!</h1>
+  <p class="subtitle">Group Admin - Smart Waste Classifier</p>
+
+  <div id="loginBox">
+    <input id="adminUser" placeholder="Admin Username">
+    <input id="adminPass" type="password" placeholder="Admin Password">
+    <button type="button" onclick="adminLogin()">Login as Admin</button>
+    <div id="msg"></div>
+  </div>
+
+  <div id="adminBox">
+    <div id="total">Loading...</div>
+    <h2>👥 Users</h2>
+    <table>
+      <thead><tr><th>ID</th><th>Username</th><th>Email</th><th>Classifications</th><th></th></tr></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+
+    <div id="detailsBox">
+      <div id="detailsTitle">History</div>
+      <table>
+        <thead><tr><th>Waste</th><th>Bin</th><th>Confidence</th><th>Time (IST)</th></tr></thead>
+        <tbody id="detailsBody"></tbody>
+      </table>
+      <div id="noHistory" style="font-size:13px;color:#999;margin-top:10px;display:none;">This user has not classified anything yet!</div>
+      <button id="closeBtn" onclick="closeDetails()">Close</button>
+    </div>
+
+    <!-- SMALL Refresh - Only reloads, NEVER deletes! -->
+  <button type="button" onclick="refreshData()" style="width:auto; padding:8px 18px; font-size:12px; background:#E6E6FA; color:#4A4A7A; border:1px solid #C8C8E8; border-radius:20px; cursor:pointer;">↻ Refresh</button>
+  <!-- CLEAR HISTORY - Big button, with confirmation! Replaces old Refresh! -->
+  <button type="button" onclick="clearHistory()" style="background:#FF6B6B; margin-top:8px;">Clear History</button>
+  </div>
+
+  <p class="links"><a href="login.html">Back to Login</a></p>
+</div>
+
+<script>
+const API = "https://waste-app-m6ez.onrender.com";
+let currentOpenUser = null;
+
+async function refreshData(){
+  const btn = document.querySelector('button[onclick="refreshData()"]');
+  if(btn) btn.innerText = "Refreshing...";
+  await loadUsers();
+  if(currentOpenUser){
+    await showDetails(currentOpenUser);
+  }
+  if(btn) btn.innerText = "↻ Refresh";
+}
+const EMOJI = { cardboard:"📦", glass:"🫙", metal:"🔩", organic:"🌱", paper:"📰", plastic:"🧴" };
+const BIN = { cardboard:"Brown Bin", glass:"White Bin", metal:"Grey Bin", organic:"Green Bin", paper:"Blue Bin", plastic:"Yellow Bin" };
+
+function fixConf(raw){
+  let c = parseFloat(raw);
+  if(isNaN(c)) return 0;
+  if(c > 1000) c = c / 100;
+  if(c <= 1 && c > 0) c = c * 100;
+  if(c > 100) c = 100;
+  return c;
+}
+function formatIST(dateStr){
+  if(!dateStr) return "";
+  let d = dateStr;
+  if(typeof d === 'string' && !d.includes('Z') && !d.includes('+') && !d.includes('T')) d = d.replace(' ', 'T') + 'Z';
+  else if(typeof d === 'string' && d.includes('T') && !d.includes('Z') && !d.includes('+')) d = d + 'Z';
+  const dt = new Date(d);
+  if(isNaN(dt)) return dateStr;
+  return dt.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: '2-digit', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true });
+}
+function getClass(h){
+  let v = h.predicted_class || h.class || h.prediction || h.label || h.category || h.class_name || "";
+  if(typeof v === 'object' && v !== null) v = v.class || v.label || "";
+  return String(v).toLowerCase().trim();
+}
+async function adminLogin(){
+  const msgEl = document.getElementById('msg');
+  msgEl.innerText = "Logging in...";
+  msgEl.style.color = "#999";
+  msgEl.style.textAlign = "center";
+  const username = document.getElementById('adminUser').value;
+  const password = document.getElementById('adminPass').value;
+  try{
+    const res = await fetch(API + "/admin/login", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify({ username, password }) });
+    const data = await res.json();
+    if(data.success){
+      document.getElementById('loginBox').style.display = 'none';
+      document.getElementById('adminBox').style.display = 'block';
+      loadUsers();
+    } else document.getElementById('msg').innerText = "Wrong Admin Username / Password!";
+  }catch(e){ document.getElementById('msg').innerText = "Backend not running - wake Render first!"; }
+}
+async function loadUsers(){
+  const res = await fetch(API + "/admin/users");
+  const data = await res.json();
+  document.getElementById('total').innerText = "Total Users: " + data.total_users;
+  const tb = document.getElementById('tbody');
+  tb.innerHTML = "";
+  data.users.forEach(u => {
+    tb.innerHTML += `<tr><td>${u.id}</td><td>${u.username}</td><td>${u.email}</td><td>${u.total_classifications}</td><td><button class="small-btn" onclick="showDetails('${u.username}')">More details</button></td></tr>`;
+  });
+}
+// FIXED: Admin uses SAME /history endpoint as History page - NOT /admin/history!
+async function showDetails(username){
+  currentOpenUser = username;
+  document.getElementById('detailsTitle').innerText = "History of " + username + " - Loading...";
+  document.getElementById('detailsBox').style.display = 'block';
+  document.getElementById('detailsBox').scrollIntoView({ behavior: 'smooth' });
+  const tb = document.getElementById('detailsBody');
+  tb.innerHTML = "";
+  document.getElementById('noHistory').style.display = 'none';
+
+  // Try same URLs as history.html uses!
+  const urls = [
+    API + "/history?username=" + encodeURIComponent(username),
+    API + "/history",
+    API + "/history/" + encodeURIComponent(username)
+  ];
+  let items = [];
+  for(const url of urls){
+    try{
+      const res = await fetch(url);
+      if(!res.ok) continue;
+      const data = await res.json();
+      if(Array.isArray(data)) items = data;
+      else if(Array.isArray(data.history)) items = data.history;
+      else if(Array.isArray(data.items)) items = data.items;
+      else if(Array.isArray(data.results)) items = data.results;
+      // If this endpoint returned items for THIS user, use it!
+      // If it returned ALL users, filter to this user!
+      if(items.length > 0){
+        // Filter to only this user if items have username field
+        const filtered = items.filter(h => {
+          const a = String(h.username || h.user || "").toLowerCase().trim();
+          if(!a) return true; // if no username in item, it must be for requested user
+          return a === username.toLowerCase().trim();
+        });
+        // If filtering gives 0 but original had items, it was all-users list - use filtered
+        // If filtering gives items, use filtered. If original was already for this user, filtered = original
+        items = filtered.length > 0 ? filtered : (items[0] && items[0].username ? filtered : items);
+        break;
+      }
+    }catch(e){}
+  }
+
+  // Remove duplicates - same class + same confidence + same minute = 1!
+  const seen = new Set();
+  const deduped = [];
+  items.forEach(it => {
+    const cls = getClass(it);
+    const conf = fixConf(it.confidence ?? it.score ?? 0).toFixed(1);
+    const date = it.created_at || it.timestamp || it.date || "";
+    const minute = date ? new Date(date).toISOString().slice(0,16) : "";
+    const key = cls + "|" + conf + "|" + minute;
+    if(seen.has(key)) return;
+    seen.add(key);
+    deduped.push(it);
+  });
+
+  document.getElementById('detailsTitle').innerText = "History of " + username + " (" + deduped.length + " items)";
+  if(deduped.length === 0){
+    document.getElementById('noHistory').style.display = 'block';
+    return;
+  }
+  deduped.forEach(h => {
+    const cls = getClass(h);
+    const conf = fixConf(h.confidence ?? h.score ?? 0);
+    tb.innerHTML += `<tr><td>${cls ? cls.charAt(0).toUpperCase()+cls.slice(1) : ""} ${EMOJI[cls]||""}</td><td>${BIN[cls]||""}</td><td>${conf.toFixed(1)}%</td><td>${formatIST(h.created_at || h.timestamp || h.date)}</td></tr>`;
+  });
+}
+async function clearHistory(){
+  const ok = confirm("Are you sure? This will delete ALL users' history! Users will NOT be deleted, only their classifications!");
+  if(!ok) return;
+  try{
+    const res = await fetch(API + "/admin/clear_history", { method:"POST" });
+    const data = await res.json();
+    if(data.success){
+      alert("History cleared!");
+      loadUsers();
+    } else alert("Could not clear: " + (data.message || ""));
+  }catch(e){ alert("Backend not running - wake Render first!"); }
+}
+function closeDetails(){
+  document.getElementById('detailsBox').style.display = 'none';
+}
+</script>
+</body>
+</html>

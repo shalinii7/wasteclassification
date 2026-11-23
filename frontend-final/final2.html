@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smart Waste Classifier</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',sans-serif}
+body{background:#E6E6FA;min-height:100vh;display:flex;justify-content:center;align-items:center;padding:20px;position:relative;overflow-x:hidden}
+.float-emoji{position:fixed;font-size:26px;opacity:0.6;z-index:0;pointer-events:none}
+.bubble{position:fixed;background:rgba(255,255,255,0.6);border-radius:50%;z-index:0;pointer-events:none}
+.card{background:white;width:100%;max-width:440px;border-radius:25px;padding:28px 24px;text-align:center;box-shadow:0 10px 30px rgba(0,0,0,0.08);position:relative;z-index:1}
+.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.top a{color:#7A7AC8;text-decoration:none;font-weight:600;font-size:13px}
+.recycle-photo{font-size:65px;line-height:1;margin:5px 0}
+h1{font-size:22px;color:#4A4A7A;margin:5px 0}
+.subtitle{color:#888;font-size:13px;margin-bottom:18px}
+.upload-box{position:relative;border:2px dashed #B8B8E8;border-radius:18px;overflow:hidden;background:#F8F8FF;min-height:210px;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.upload-box p{color:#777;text-align:center}
+#preview{width:100%;max-height:260px;object-fit:cover;border-radius:12px;display:none}
+.scan-line{position:absolute;left:0;right:0;height:4px;background:#7A7AC8;box-shadow:0 0 12px rgba(122,122,200,0.7);display:none;z-index:2}
+/* LOOPING - Keeps going while Backend is slow! */
+.scan-line.looping{animation:scanLoop 1.6s ease-in-out infinite}
+@keyframes scanLoop{0%{top:0}50%{top:calc(100% - 4px)}100%{top:0}}
+/* FINAL 3 PASSES - Down -> Up -> Down, then STOP + Result! */
+.scan-line.final{animation:scan3 2.4s ease-in-out forwards}
+@keyframes scan3{0%{top:0}33%{top:calc(100% - 4px)}66%{top:0}100%{top:calc(100% - 4px)}}
+.corner{position:absolute;width:22px;height:22px;border:3px solid #B8B8E8;z-index:3}
+.tl{top:8px;left:8px;border-right:none;border-bottom:none}
+.tr{top:8px;right:8px;border-left:none;border-bottom:none}
+.bl{bottom:8px;left:8px;border-right:none;border-top:none}
+.br{bottom:8px;right:8px;border-left:none;border-top:none}
+button{width:100%;padding:13px;border:none;border-radius:12px;background:#7A7AC8;color:white;font-size:16px;font-weight:700;cursor:pointer;margin-top:16px}
+button:hover{background:#6565B8}
+button:disabled{opacity:0.6;cursor:not-allowed}
+#result{margin-top:20px;display:none;border-radius:16px;padding:18px;background:#F8F8FF;border:1px solid #E6E6FA}
+#resultEmoji{font-size:55px}
+#resultText{font-size:22px;font-weight:800;color:#4A4A7A;margin:8px 0 2px}
+#resultBin{font-size:14px;color:#7A7AC8;font-weight:600}
+#binHearts{font-size:28px;margin-top:6px;letter-spacing:4px}
+#confidence{font-size:13px;color:#999;margin-top:4px}
+#confidenceBar{height:8px;background:#EEE;border-radius:10px;margin-top:10px;overflow:hidden}
+#confidenceFill{height:100%;background:#7A7AC8;width:0%;transition:width 0.6s}
+#debug{font-size:11px;color:#AAA;margin-top:8px}
+</style>
+</head>
+<body>
+<span class="float-emoji" style="left:5%;top:15%;">📦</span>
+<span class="float-emoji" style="left:12%;top:70%;">🫙</span>
+<span class="float-emoji" style="left:88%;top:20%;">🔩</span>
+<span class="float-emoji" style="left:92%;top:65%;">🌱</span>
+<span class="float-emoji" style="left:8%;top:40%;">📰</span>
+<span class="float-emoji" style="left:90%;top:45%;">🧴</span>
+<div class="bubble" style="width:15px;height:15px;left:10%;top:80%;"></div>
+<div class="bubble" style="width:25px;height:25px;left:85%;top:10%;"></div>
+
+<div class="card">
+  <div class="top">
+    <a href="history.html">← History</a>
+    <a href="#" onclick="showLogoutPopup(); return false;">Logout</a>
+  </div>
+  <div class="recycle-photo">♻️</div>
+  <h1>Smart Waste Classifier 🚮</h1>
+  <p class="subtitle">Upload a photo - we'll tell you where it goes!</p>
+
+  <div class="upload-box" onclick="document.getElementById('fileInput').click()">
+    <div class="corner tl"></div><div class="corner tr"></div><div class="corner bl"></div><div class="corner br"></div>
+    <div class="scan-line" id="scanLine"></div>
+    <p id="uploadText"><b>Upload Photo</b><br><span style="font-size:12px;">Click to choose photo from gallery</span></p>
+    <img id="preview">
+  </div>
+  <input type="file" id="fileInput" accept="image/*" hidden onchange="showPreview(event)">
+  <button id="classifyBtn" onclick="classify()">Classify Waste</button>
+
+  <div id="result">
+    <div id="resultEmoji"></div>
+    <div id="resultText"></div>
+    <div id="resultBin"></div>
+    <div id="binHearts"></div>
+    <div id="confidence"></div>
+    <div id="confidenceBar"><div id="confidenceFill"></div></div>
+    <button id="anotherBtn" onclick="classifyAnother()" style="background:white; color:#7A7AC8; border:2px solid #7A7Ac8; margin-top:16px;">Classify Another!</button>
+  </div>
+  <div id="debug"></div>
+</div>
+
+<!-- LOGOUT POPUP -->
+<div id="logoutPopup" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.4); z-index:99; align-items:center; justify-content:center;">
+  <div style="background:white; padding:25px; border-radius:20px; width:90%; max-width:300px; text-align:center;">
+    <p style="color:#4A4A7A; font-weight:700; font-size:16px; margin-bottom:20px;">Are you sure you want to log out?</p>
+    <button onclick="hideLogoutPopup()" style="background:#EEE; color:#444; width:45%; display:inline-block; margin:0 4px;">Cancel</button>
+    <button onclick="doLogout()" style="background:#7A7AC8; color:white; width:45%; display:inline-block; margin:0 4px;">Logout</button>
+  </div>
+</div>
+
+<script>
+const API = "https://waste-app-m6ez.onrender.com";
+const EMOJI = { cardboard:"📦", glass:"🫙", metal:"🔩", organic:"🌱", paper:"📰", plastic:"🧴" };
+const BIN = { cardboard:"Brown Bin", glass:"White Bin", metal:"Grey Bin", organic:"Green Bin", paper:"Blue Bin", plastic:"Yellow Bin" };
+// COLOUR HEARTS FOR EACH BIN!
+const HEART = { cardboard:"🤎", glass:"🤍", metal:"🩶", organic:"💚", paper:"💙", plastic:"💛" };
+
+function showLogoutPopup(){ document.getElementById('logoutPopup').style.display = 'flex'; }
+function hideLogoutPopup(){ document.getElementById('logoutPopup').style.display = 'none'; }
+function doLogout(){ localStorage.removeItem('token'); localStorage.removeItem('username'); window.location.href = 'login.html'; }
+
+function classifyAnother(){
+  // Clear old photo + result
+  document.getElementById('fileInput').value = "";
+  document.getElementById('preview').src = "";
+  document.getElementById('preview').style.display = 'none';
+  document.getElementById('uploadText').style.display = 'block';
+  document.getElementById('result').style.display = 'none';
+  document.getElementById('debug').innerText = "";
+  document.getElementById('confidenceFill').style.width = "0%";
+  // Open gallery straight away to pick next photo!
+  document.getElementById('fileInput').click();
+}
+
+function showPreview(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(){
+    const img = document.getElementById('preview');
+    img.src = reader.result;
+    img.style.display = 'block';
+    document.getElementById('uploadText').style.display = 'none';
+    document.getElementById('result').style.display = 'none';
+  };
+  reader.readAsDataURL(file);
+}
+function fixConfidence(raw){
+  let c = parseFloat(raw);
+  if(isNaN(c)) return 0;
+  if(c > 1000) c = c / 100;
+  if(c <= 1 && c > 0) c = c * 100;
+  if(c > 100) c = 100;
+  return c;
+}
+function getClass(data){
+  let v = data.predicted_class || data.class || data.prediction || data.predicted || data.label || data.result || data.category || data.class_name || "";
+  if(typeof v === 'object' && v !== null) v = v.class || v.label || v.predicted_class || "";
+  if(!v && data.data && typeof data.data === 'object') v = data.data.predicted_class || data.data.class || data.data.prediction || "";
+  return String(v).toLowerCase().trim();
+}
+async function classify(){
+  const input = document.getElementById('fileInput');
+  if(!input.files[0]){ alert("Please upload a photo first!"); return; }
+  const btn = document.getElementById('classifyBtn');
+  btn.disabled = true;
+  btn.innerText = "Scanning...";
+  document.getElementById('result').style.display = 'none';
+  document.getElementById('debug').innerText = "Scanning...";
+
+  // START LOOPING SCAN - Keeps going if Backend is slow!
+  const line = document.getElementById('scanLine');
+  line.classList.remove('final', 'looping');
+  void line.offsetWidth;
+  line.style.display = 'block';
+  line.classList.add('looping');
+
+  const form = new FormData();
+  form.append('file', input.files[0]);
+  const token = localStorage.getItem('token');
+  const username = localStorage.getItem('username');
+  if(username) form.append('username', username);
+
+  let data = null, fetchError = null;
+  try{
+    const res = await fetch(API + "/predict", { method:"POST", body: form, headers: token ? { "Authorization": "Bearer " + token } : {} });
+    data = await res.json();
+  }catch(e){ fetchError = e; }
+
+  // Backend replied! Now do FINAL Down-Up-Down (2.4s) then show result!
+  line.classList.remove('looping');
+  void line.offsetWidth;
+  line.classList.add('final');
+  document.getElementById('debug').innerText = "Got it! Finishing scan...";
+  await new Promise(res => setTimeout(res, 2400));
+  line.style.display = 'none';
+  line.classList.remove('final');
+  btn.disabled = false;
+  btn.innerText = "Classify Waste";
+
+  if(fetchError || !data){
+    document.getElementById('debug').innerText = "Backend sleeping! Open Render link, wait for API Running, then try again!";
+    alert("Backend waking up! Open https://waste-app-m6ez.onrender.com/ in new tab, wait for API Running, then try again!");
+    return;
+  }
+  const cls = getClass(data);
+  const conf = fixConfidence(data.confidence ?? data.score ?? data.accuracy ?? 0);
+  document.getElementById('result').style.display = 'block';
+  document.getElementById('debug').innerText = "";
+  if(!cls){
+    document.getElementById('resultEmoji').innerText = "⚠️";
+    document.getElementById('resultText').innerText = "No Result";
+    document.getElementById('resultBin').innerText = "Backend said: " + JSON.stringify(data).slice(0,100);
+    document.getElementById('binHearts').innerText = "";
+    document.getElementById('confidence').innerText = "";
+    return;
+  }
+  document.getElementById('resultEmoji').innerText = EMOJI[cls] || "♻️";
+  document.getElementById('resultText').innerText = cls.charAt(0).toUpperCase() + cls.slice(1);
+  document.getElementById('resultBin').innerText = "Put it in: " + (BIN[cls] || "");
+  // COLOUR HEARTS!
+  document.getElementById('binHearts').innerText = (HEART[cls] || "") + " " + (HEART[cls] || "") + " " + (HEART[cls] || "");
+  document.getElementById('confidence').innerText = "Confidence: " + conf.toFixed(1) + "%";
+  document.getElementById('confidenceFill').style.width = conf + "%";
+
+  // Save photo for History
+  try{
+    const previewImg = document.getElementById('preview');
+    let saved = JSON.parse(localStorage.getItem('myHistoryPhotos') || "[]");
+    saved.unshift({ cls: cls, conf: conf.toFixed(1), img: previewImg.src, date: new Date().toISOString() });
+    saved = saved.slice(0, 30);
+    localStorage.setItem('myHistoryPhotos', JSON.stringify(saved));
+    localStorage.removeItem('myHistoryHidden');
+  }catch(e){}
+}
+</script>
+</body>
+</html>

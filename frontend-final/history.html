@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>My History - Smart Waste Classifier</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',sans-serif}
+body{background:#E6E6FA;min-height:100vh;display:flex;justify-content:center;align-items:flex-start;padding:20px}
+.card{background:white;width:100%;max-width:440px;border-radius:25px;padding:28px 24px;text-align:center;box-shadow:0 10px 30px rgba(0,0,0,0.08)}
+.top{display:flex;justify-content:space-between;align-items:center}
+.top a{color:#7A7AC8;text-decoration:none;font-weight:600;font-size:13px}
+.recycle-photo{font-size:65px;line-height:1;margin:5px 0}
+h1{font-size:22px;color:#4A4A7A;margin:5px 0}
+#total{font-weight:700;color:#7A7AC8;margin:12px 0}
+.filters{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-bottom:14px}
+.filters button{padding:6px 12px;border-radius:20px;border:1px solid #DDD;background:#F8F8FF;color:#4A4A7A;font-size:12px;cursor:pointer;width:auto}
+.filters button.active{background:#7A7AC8;color:white;border-color:#7A7AC8}
+.history-item{display:flex;align-items:center;gap:12px;background:#F8F8FF;border:1px solid #E6E6FA;border-radius:14px;padding:12px;text-align:left;margin-bottom:10px}
+.history-img{width:55px;height:55px;object-fit:cover;border-radius:10px;flex-shrink:0;background:#EEE}
+.history-info{flex:1}
+.history-info b{color:#4A4A7A;font-size:15px}
+.history-info p{font-size:12px;color:#888;margin-top:2px}
+.history-conf{font-size:12px;color:#7A7AC8;font-weight:700}
+#empty{color:#999;font-size:13px;padding:20px 0}
+.links{margin-top:14px;font-size:13px}
+.links a{color:#7A7AC8;text-decoration:none;margin:0 6px;font-weight:600}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="top">
+    <a href="final2.html">← Classify</a>
+    <a href="#" onclick="showLogoutPopup(); return false;">Logout</a>
+  </div>
+  <div class="recycle-photo">♻️</div>
+  <h1>My History 🚮</h1>
+  <div id="total">Loading history...</div>
+  <div class="filters" id="filters">
+    <button class="active" onclick="filterBy('all', this)">All</button>
+    <button onclick="filterBy('cardboard', this)">📦 Cardboard</button>
+    <button onclick="filterBy('glass', this)">🫙 Glass</button>
+    <button onclick="filterBy('metal', this)">🔩 Metal</button>
+    <button onclick="filterBy('organic', this)">🌱 Organic</button>
+    <button onclick="filterBy('paper', this)">📰 Paper</button>
+    <button onclick="filterBy('plastic', this)">🧴 Plastic</button>
+  </div>
+  <button onclick="clearMyHistory()" style="width:auto; padding:8px 18px; font-size:12px; background:#FF6B6B; color:white; border:none; border-radius:20px; cursor:pointer; margin-bottom:12px;">Clear History</button>
+  <div id="list"></div>
+  <div id="empty" style="display:none;">No history yet!<br>Classify your first photo to see it here!</div>
+</div>
+<!-- LOGOUT POPUP -->
+  <div id="logoutPopup" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.4); z-index:99; align-items:center; justify-content:center;">
+    <div style="background:white; padding:25px; border-radius:20px; width:90%; max-width:300px; text-align:center;">
+      <p style="color:#4A4A7A; font-weight:700; font-size:16px; margin-bottom:20px;">Are you sure you want to log out?</p>
+      <button onclick="hideLogoutPopup()" style="background:#EEE; color:#444; width:45%; display:inline-block; margin:0 4px;">Cancel</button>
+      <button onclick="doLogout()" style="background:#7A7AC8; color:white; width:45%; display:inline-block; margin:0 4px;">Logout</button>
+    </div>
+  </div>
+
+  <!-- CLEAR HISTORY POPUP - Pretty like Logout! EDIT MESSAGE HERE! -->
+  <div id="clearPopup" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.4); z-index:99; align-items:center; justify-content:center;">
+    <div style="background:white; padding:25px; border-radius:20px; width:90%; max-width:300px; text-align:center;">
+      <!-- ✏️ EDIT THIS MESSAGE BELOW! Change it to whatever you want! -->
+      <p style="color:#4A4A7A; font-weight:700; font-size:15px; margin-bottom:20px;">Are you sure you want to clear your history?</p>
+      <button onclick="hideClearPopup()" style="background:#EEE; color:#444; width:45%; display:inline-block; margin:0 4px; padding:10px; border:none; border-radius:12px; cursor:pointer;">Cancel</button>
+      <button onclick="doClearHistory()" style="background:#FF6B6B; color:white; width:45%; display:inline-block; margin:0 4px; padding:10px; border:none; border-radius:12px; cursor:pointer;">Clear</button>
+    </div>
+  </div>
+
+<script>
+const API = "https://waste-app-m6ez.onrender.com";
+const EMOJI = { cardboard:"📦", glass:"🫙", metal:"🔩", organic:"🌱", paper:"📰", plastic:"🧴" };
+const BIN = { cardboard:"Brown Bin", glass:"White Bin", metal:"Grey Bin", organic:"Green Bin", paper:"Blue Bin", plastic:"Yellow Bin" };
+let allItems = [];
+let currentFilter = 'all';
+
+function showLogoutPopup(){
+  document.getElementById('logoutPopup').style.display = 'flex';
+}
+function hideLogoutPopup(){
+  document.getElementById('logoutPopup').style.display = 'none';
+}
+function doLogout(){
+  localStorage.removeItem('token');
+  localStorage.removeItem('username');
+  window.location.href = 'login.html';
+}
+
+function fixConf(raw){
+  let c = parseFloat(raw);
+  if(isNaN(c)) return 0;
+  if(c > 1000) c = c / 100;
+  if(c <= 1 && c > 0) c = c * 100;
+  if(c > 100) c = 100;
+  return c;
+}
+function formatIST(dateStr){
+  let d = dateStr;
+  // If backend sends "2026-11-21 10:40:00" without timezone, treat it as UTC!
+  if(typeof d === 'string' && !d.includes('Z') && !d.includes('+') && !d.includes('T')){
+    d = d.replace(' ', 'T') + 'Z';
+  } else if(typeof d === 'string' && d.includes('T') && !d.includes('Z') && !d.includes('+')){
+    d = d + 'Z';
+  }
+  const dt = new Date(d);
+  if(isNaN(dt)) return dateStr;
+  // Show in IST - Asia/Kolkata!
+  return dt.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: '2-digit', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true });
+}
+function getClass(item){
+  let v = item.predicted_class || item.class || item.prediction || item.label || item.category || item.class_name || item.cls || "";
+  if(typeof v === 'object' && v !== null) v = v.class || v.label || "";
+  return String(v).toLowerCase().trim();
+}
+function getImage(item, idx){
+  // 1. If backend gives image, use it!
+  if(item.image_url) return item.image_url;
+  if(item.image) return item.image;
+  if(item.photo) return item.photo;
+  if(item.img) return item.img;
+  // 2. If we saved photo in browser during classify, use it!
+  try{
+    const saved = JSON.parse(localStorage.getItem('myHistoryPhotos') || "[]");
+    // Match by class + confidence
+    const cls = getClass(item);
+    const conf = fixConf(item.confidence ?? item.score ?? 0).toFixed(1);
+    const found = saved.find(s => s.cls === cls && s.conf === conf);
+    if(found) return found.img;
+    // Fallback: use by position - newest first
+    if(saved[idx]) return saved[idx].img;
+  }catch(e){}
+  return "";
+}
+function render(){
+  const list = document.getElementById('list');
+  list.innerHTML = "";
+  const shown = allItems.filter(it => currentFilter === 'all' || getClass(it) === currentFilter);
+  document.getElementById('total').innerText = "Total: " + shown.length + " items" + (currentFilter !== 'all' ? " • " + currentFilter : "");
+  document.getElementById('empty').style.display = shown.length === 0 ? 'block' : 'none';
+  shown.forEach((item, idx) => {
+    const cls = getClass(item);
+    const conf = fixConf(item.confidence ?? item.score ?? 0);
+    const date = item.created_at || item.timestamp || item.date || "";
+    const dateStr = date ? formatIST(date) : "";
+    const imgSrc = getImage(item, idx);
+    const div = document.createElement('div');
+    div.className = 'history-item';
+    // LEFT = Your real uploaded photo! RIGHT = Cardboard + emoji after it!
+    const imgHtml = imgSrc ? `<img src="${imgSrc}" class="history-img">` : `<div class="history-img" style="display:flex;align-items:center;justify-content:center;font-size:24px;">${EMOJI[cls] || "♻️"}</div>`;
+    div.innerHTML = `${imgHtml}
+      <div class="history-info"><b>${cls ? cls.charAt(0).toUpperCase() + cls.slice(1) : "Unknown"} ${EMOJI[cls] || ""}</b><p>Put it in: ${BIN[cls] || ""} ${dateStr ? " • " + dateStr : ""}</p></div>
+      <div class="history-conf">${conf ? conf.toFixed(1) + "%" : ""}</div>`;
+    list.appendChild(div);
+  });
+}
+async function clearMyHistory(){
+  const ok = confirm("Are you sure you want to clear YOUR history view? Admin can still see it for records, but it will disappear from your screen!");
+  if(!ok) return;
+  // ONLY clear MY screen + browser photos - NEVER delete from Database!
+  // Admin will still see everything in Database!
+  localStorage.removeItem('myHistoryPhotos');
+  localStorage.setItem('myHistoryHidden', 'yes');
+  allItems = [];
+  render();
+  document.getElementById('total').innerText = "Total: 0 items";
+  document.getElementById('empty').style.display = 'block';
+}
+function filterBy(f, btn){
+  currentFilter = f;
+  document.querySelectorAll('#filters button').forEach(b => b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  render();
+}
+function dedupe(items){
+  // Remove duplicates: Same class + Same confidence + Same minute = 1 item only!
+  const seen = new Set();
+  const out = [];
+  items.forEach(it => {
+    const cls = getClass(it);
+    const conf = fixConf(it.confidence ?? it.score ?? 0).toFixed(1);
+    const date = it.created_at || it.timestamp || it.date || "";
+    const minute = date ? new Date(date).toISOString().slice(0,16) : "";
+    const key = cls + "|" + conf + "|" + minute;
+    if(seen.has(key)) return; // skip duplicate!
+    seen.add(key);
+    out.push(it);
+  });
+  return out;
+}
+async function load(){
+  const username = localStorage.getItem('username');
+  const token = localStorage.getItem('token');
+  // If no backend history, use browser-saved photos!
+  let savedLocal = [];
+  try{ savedLocal = JSON.parse(localStorage.getItem('myHistoryPhotos') || "[]"); }catch(e){}
+  const urls = [];
+  if(username) urls.push(API + "/history?username=" + encodeURIComponent(username));
+  urls.push(API + "/history");
+  let found = false;
+  for(const url of urls){
+    try{
+      const res = await fetch(url, { headers: token ? { "Authorization": "Bearer " + token } : {} });
+      if(!res.ok) continue;
+      const data = await res.json();
+      let items = [];
+      if(Array.isArray(data)) items = data;
+      else if(Array.isArray(data.history)) items = data.history;
+      else if(Array.isArray(data.items)) items = data.items;
+      else if(Array.isArray(data.results)) items = data.results;
+      if(items.length > 0){
+        allItems = dedupe(items);
+        render();
+        found = true;
+        return;
+      }
+    }catch(e){}
+  }
+  // Fallback: show browser-saved photos if backend empty!
+  if(!found && savedLocal.length > 0){
+    allItems = dedupe(savedLocal.map(s => ({ predicted_class: s.cls, confidence: s.conf, created_at: s.date, image: s.img })));
+    render();
+    return;
+  }
+  document.getElementById('total').innerText = "Total: 0 items";
+  document.getElementById('empty').style.display = 'block';
+}
+load();
+</script>
+</body>
+</html>

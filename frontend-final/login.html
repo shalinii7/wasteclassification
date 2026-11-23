@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Login - Smart Waste Classifier</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',system-ui,sans-serif}
+  body{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#EDE7F6 0%,#E3D7FF 45%,#D8CFFF 100%);padding:20px;position:relative}
+  .float{position:absolute;font-size:42px;opacity:0.55;animation:floaty 6s ease-in-out infinite;z-index:1}
+  .f1{top:8%;left:8%}
+  .f2{top:14%;right:10%;font-size:48px;animation-delay:1s}
+  .f3{bottom:16%;left:10%;font-size:46px;animation-delay:.5s}
+  .f4{bottom:12%;right:12%;animation-delay:1.5s}
+  .f5{top:48%;left:4%;font-size:38px;animation-delay:2s}
+  .f6{top:52%;right:4%;font-size:40px;animation-delay:.8s}
+  .f7{top:28%;left:5%;font-size:40px;animation-delay:0.3s}
+  .f8{top:28%;right:5%;font-size:44px;animation-delay:1.2s}
+  .f9{bottom:32%;left:5%;font-size:40px;animation-delay:0.7s}
+  .f10{bottom:32%;right:5%;font-size:42px;animation-delay:1.8s}
+  .f11{top:68%;left:14%;font-size:38px;animation-delay:2.2s}
+  .f12{top:68%;right:14%;font-size:40px;animation-delay:0.4s}
+  @keyframes floaty{0%,100%{transform:translateY(0)}50%{transform:translateY(-14px)}}
+  .bubble{position:absolute;border-radius:50%;background:rgba(255,255,255,0.18);border:1.5px solid rgba(255,255,255,0.55);animation:bubbleMove linear infinite;z-index:1;pointer-events:none}
+  .b1{width:18px;height:18px;left:18%;top:80%;animation-duration:11s}
+  .b2{width:32px;height:32px;left:68%;top:85%;animation-duration:14s;animation-delay:2s}
+  .b3{width:12px;height:12px;left:42%;top:90%;animation-duration:9s;animation-delay:1s}
+  .b4{width:85px;height:85px;left:80%;top:70%;animation-duration:18s;animation-delay:1s;background:rgba(255,255,255,0.10)}
+  .b5{width:22px;height:22px;left:8%;top:70%;animation-duration:12s;animation-delay:1.5s}
+  .b6{width:14px;height:14px;left:55%;top:88%;animation-duration:10s;animation-delay:.5s}
+  .b7{width:64px;height:64px;left:12%;top:18%;animation-duration:16s;animation-delay:2.5s}
+  @keyframes bubbleMove{0%{transform:translate(0,0);opacity:0}10%{opacity:0.9}100%{transform:translate(-10px,-380px);opacity:0}}
+  .card{position:relative;z-index:2;background:#fff;width:100%;max-width:420px;padding:36px 32px 26px;border-radius:24px;box-shadow:0 18px 40px rgba(124,93,211,0.20);opacity:1 !important}
+  .logo{font-size:46px;text-align:center;margin-bottom:6px}
+  h2{text-align:center;font-size:27px;color:#5B3FBF;margin-bottom:6px}
+  .sub{text-align:center;color:#7a7a9a;font-size:14px;margin-bottom:20px}
+  label{display:block;font-size:13px;font-weight:600;color:#444;margin:15px 0 7px}
+  input{width:100%;padding:13px 15px;border:1.5px solid #E0D9FF;border-radius:13px;font-size:15px;outline:none;background:#F8F6FF}
+  input:focus{border-color:#8B6FE8;background:#fff;box-shadow:0 0 0 4px rgba(139,111,232,.18)}
+  button{width:100%;margin-top:26px;padding:14px;border:none;border-radius:13px;background:linear-gradient(135deg,#8B6FE8,#B28DFF);color:#fff;font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 10px 22px rgba(139,111,232,.35)}
+  button:hover{transform:translateY(-2px)}
+  .link{text-align:center;margin-top:20px;font-size:14px;color:#7a7a9a}
+  .link a{color:#7C5CD6;font-weight:700;text-decoration:none}
+  #msg{text-align:center;margin-top:14px;font-size:14px;min-height:20px}
+  .ok{color:#198754}.err{color:#dc3545}
+  .pwd-row{display:flex;align-items:center;gap:10px;margin:15px 0 7px}
+  .pwd-row label{margin:0}
+  .panda-hint{font-size:11px;color:#8B6FE8;font-weight:600}
+  .panda-face{width:52px;height:44px;position:relative;flex-shrink:0}
+  .p-ear{position:absolute;width:18px;height:18px;background:#1a1a1a;border-radius:50%;top:0;z-index:1}
+  .p-ear.left{left:2px}.p-ear.right{right:2px}
+  .tuft{position:absolute;top:-4px;left:50%;transform:translateX(-50%);width:9px;height:8px;background:#fff;border-radius:50% 50% 50% 50% / 100% 100% 0 0;z-index:3}
+  .p-head{position:absolute;left:1px;top:4px;width:50px;height:40px;background:#fff;border:2px solid #1a1a1a;border-radius:50%;z-index:2;overflow:hidden}
+  .patch{position:absolute;width:17px;height:21px;background:#1a1a1a;border-radius:50%;top:10px}
+  .patch.left{left:3px;transform:rotate(-12deg)}
+  .patch.right{right:3px;transform:rotate(12deg)}
+  .p-eye{position:absolute;width:7px;height:8px;background:#1a1a1a;border-radius:50%;top:6px;left:5px}
+  .shine{position:absolute;width:2.5px;height:2.5px;background:#fff;border-radius:50%;top:1px;left:1px}
+  .closed{position:absolute;top:14px;width:10px;height:6px;border-bottom:2.5px solid #1a1a1a;border-radius:0 0 10px 10px;display:none}
+  .closed.left{left:6px}.closed.right{right:6px}
+  .cheek{position:absolute;width:11px;height:8px;background:#FFC9C9;border-radius:50%;top:23px}
+  .cheek.left{left:0}.cheek.right{right:0}
+  .p-nose{position:absolute;left:50%;top:23px;transform:translateX(-50%);width:5px;height:4px;background:#1a1a1a;border-radius:50%;z-index:2}
+  .p-mouth{position:absolute;left:50%;top:27px;transform:translateX(-50%);width:9px;height:4px;border-bottom:1.5px solid #1a1a1a;border-radius:0 0 8px 8px}
+  .p-paw{position:absolute;bottom:-1px;width:14px;height:18px;background:#1a1a1a;border-radius:10px;z-index:5;transition:0.3s;border:1.5px solid #fff;box-shadow:0 0 0 1px #1a1a1a}
+  .p-paw.left{left:8px;transform:rotate(-8deg)}.p-paw.right{right:8px;transform:rotate(8deg)}
+  .panda-face.sleep .p-paw.left{bottom:10px;left:6px;opacity:1}
+  .panda-face.sleep .p-paw.right{bottom:10px;right:6px;opacity:1}
+  .panda-face.sleep .p-eye{display:none}
+  .panda-face.sleep .closed{display:block}
+  .zzz{position:absolute;top:-2px;right:-10px;font-size:11px;opacity:0}
+  .panda-face.sleep .zzz{opacity:1}
+</style>
+</head>
+<body>
+  <span class="float f1">📦</span><span class="float f2">🫙</span>
+  <span class="float f3">🔩</span><span class="float f4">🌱</span>
+  <span class="float f5">📰</span><span class="float f6">🧴</span>
+  <span class="float f7">🥤</span><span class="float f8">🥕</span>
+  <span class="float f9">🥫</span><span class="float f10">🗞️</span>
+  <span class="float f11">🧺</span><span class="float f12">🛍️</span>
+  <span class="bubble b1"></span><span class="bubble b2"></span><span class="bubble b3"></span>
+  <span class="bubble b4"></span><span class="bubble b5"></span><span class="bubble b6"></span>
+  <span class="bubble b7"></span>
+<div class="card">
+  <div class="logo">♻️</div>
+  <h2>Welcome Back</h2>
+  <p class="sub">Login to Smart Waste Classifier 🚮</p>
+  <label>Username</label>
+  <input id="username" placeholder="Enter username">
+  <div class="pwd-row">
+    <label for="password">Password</label>
+    <div class="panda-face" id="panda">
+      <div class="p-ear left"></div><div class="p-ear right"></div>
+      <div class="tuft"></div>
+      <div class="p-head">
+        <div class="patch left"><div class="p-eye"><div class="shine"></div></div></div>
+        <div class="patch right"><div class="p-eye"><div class="shine"></div></div></div>
+        <div class="closed left"></div><div class="closed right"></div>
+        <div class="cheek left"></div><div class="cheek right"></div>
+        <div class="p-nose"></div><div class="p-mouth"></div>
+      </div>
+      <div class="p-paw left"></div><div class="p-paw right"></div>
+      <div class="zzz">💤</div>
+    </div>
+    <span class="panda-hint" id="pandaText">I'm watching 👀</span>
+  </div>
+  <input id="password" type="password" placeholder="Enter password">
+  <button id="btn" onclick="login()">Login →</button>
+  <p id="msg"></p>
+  <p class="link">Don't have account? <a href="register.html">Create Account</a></p>
+  <p class="link" style="margin-top:6px;"><a href="admin.html">Admin Login</a></p>
+</div>
+<script>
+const API = "https://waste-app-m6ez.onrender.com";
+const pwd = document.getElementById('password');
+const panda = document.getElementById('panda');
+const pandaText = document.getElementById('pandaText');
+pwd.addEventListener('focus', ()=>{ panda.classList.add('sleep'); pandaText.textContent="Shhh... sleeping! 💤"; });
+pwd.addEventListener('blur', ()=>{ panda.classList.remove('sleep'); pandaText.textContent="I'm watching 👀"; });
+pwd.addEventListener('input', ()=>{ if(pwd.value.length>0){ panda.classList.add('sleep'); pandaText.textContent=""; } });
+async function login(){
+  const btn=document.getElementById('btn');const msg=document.getElementById('msg');
+  const username=document.getElementById('username').value.trim();
+  const password=pwd.value;
+  if(!username||!password){msg.textContent="Please fill all fields";msg.className="err";return;}
+  btn.disabled=true;btn.textContent="Logging in...";msg.textContent="";
+  try{
+    const res=await fetch(API+"/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username,password})});
+    const data=await res.json();
+    if(res.ok){
+      localStorage.setItem("username", username);
+      if(data.token) localStorage.setItem("token", data.token);
+      msg.textContent="Login successful!";msg.className="ok";
+      setTimeout(()=>window.location.href="final2.html",800);
+    } else {msg.textContent=data.error||"Login failed";msg.className="err";}
+  }catch(e){msg.textContent="Backend not running. Please try again.";msg.className="err";}
+  btn.disabled=false;btn.textContent="Login →";
+}
+</script>
+</body>
+</html>
